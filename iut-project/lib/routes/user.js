@@ -104,5 +104,24 @@ module.exports = [
 
             return await userService.login(request.payload.email, request.payload.password);
         }
+    },
+
+    {
+        method: 'patch',
+        path: '/user/role/{id}',
+        options: {
+            tags: ['api'],
+            validate: {
+                params: Joi.object({
+                    id: Joi.number().integer().required().min(1)
+                })
+            }
+        },
+        handler: async (request, h) => {
+            const { userService } = request.services();
+            const { id } = request.params;
+
+            return await userService.setAdminRole(id);
+        }
     }
 ];

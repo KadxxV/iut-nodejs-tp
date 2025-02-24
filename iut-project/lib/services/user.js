@@ -4,39 +4,34 @@ const { Service } = require('@hapipal/schmervice');
 const Boom = require('@hapi/boom');
 const Jwt = require('@hapi/jwt');
 
-
 module.exports = class UserService extends Service {
 
-    create(user){
-
+    async create(user) {
         const { User } = this.server.models();
+        const { emailService } = this.server.services();
+        const newUser = await User.query().insertAndFetch(user);
 
-        return User.query().insertAndFetch(user);
+        await emailService.sendAccountCreationEmail(newUser.email, newUser.firstName);
+
+        return newUser;
     }
 
-    findAll(){
-
+    findAll() {
         const { User } = this.server.models();
-
         return User.query();
     }
 
-    delete(id){
-
+    delete(id) {
         const { User } = this.server.models();
-
         return User.query().deleteById(id);
     }
 
-    update(id, user){
-
+    update(id, user) {
         const { User } = this.server.models();
-
         return User.query().findById(id).patch(user);
     }
 
     async login(email, password) {
-
         const { User } = this.server.models();
 
         const user = await User.query().findOne({ email, password });
@@ -64,5 +59,44 @@ module.exports = class UserService extends Service {
         );
 
         return token;
+    }
+
+    async setAdminRole(id) {
+        const { User } = this.server.models();
+
+        const user = await User.query().findById(id);
+        if (!user) {
+            throw Boom.notFound("Utilisateur non trouvé");
+        }
+
+        if (user.roles.includes('admin')) {
+            throw Boom.badRequest("L'utilisateur est déjà administrateur");
+        }
+
+        await User.query()
+            .findById(id)
+            .patch({ roles: [...user.roles, 'admin'] });
+
+        return { message: "L'utilisateur a été promu administrateur" };
+    }
+
+    getUserById(id) {
+        const { User } = this.server.models();
+        return User.query().findById(id);
+    }
+
+    async notifyFilmAddition(to, filmTitle) {
+        const { emailService } = this.server.services();
+        await emailService.sendFilmAdditionEmail(to, filmTitle);
+    }
+
+    async notifyFavoriteFilmUpdate(to, filmTitle) {
+        const { emailService } = this.server.services();
+        await emailService.sendFavoriteFilmGotUpdatedEmail(to, filmTitle);
+    }
+
+    async sendFilmsCSV(to, csvStream) {
+        const { emailService } = this.server.services();
+        await emailService.sendFilmsCSVByEmail(to, csvStream);
     }
 }
